@@ -1,0 +1,56 @@
+#!/usr/bin/env python3
+
+import sys
+
+import gi
+gi.require_version("Gtk", "4.0")
+from gi.repository import Gtk, Gdk, Pango
+
+def get_pango_string_size(string, font_name):
+    # https://stackoverflow.com/questions/16379496/calculate-size-of-textstring-in-pygtk-pango-for-text-fill/23187879#23187879
+    label = Gtk.Label()
+    pango_layout = label.get_layout()
+    pango_layout.set_text(string)
+    pango_font_desc = Pango.FontDescription(font_name)
+    pango_layout.set_font_description(pango_font_desc)
+    return pango_layout.get_pixel_size()
+
+def redact_text(string):
+    string_size = get_pango_string_size(string, fontspec)
+    num_blocks = int(string_size.width / block_size.width + 0.5)
+    return block * num_blocks
+
+def read_cb(so, res, user_data):
+    clipboard = user_data
+    text = clipboard.read_text_finish(res)
+    if text is not None:
+        _clipboard.set(redact_text(text))
+
+def check_it(clipboard):
+    if not clipboard.is_local():
+        clipboard.read_text_async(cancellable=None, callback=read_cb, user_data=clipboard)
+
+
+if len(sys.argv) != 2:
+    print("Usage: redact-magic-paste <fontspec>", file=sys.stderr)
+    print("<fontspec> is like 'Times 10' or similar", file=sys.stderr)
+    sys.exit(1)
+
+fontspec = sys.argv[1]
+
+display = Gdk.Display().get_default()
+_clipboard = display.get_clipboard()
+_selection = display.get_primary_clipboard()
+
+block = '█'
+block_size = get_pango_string_size(block, fontspec)
+
+_clipboard.connect('changed', check_it)
+_selection.connect('changed', check_it)
+
+def activate(app):
+    app.hold()
+
+app = Gtk.Application()
+app.connect('activate', activate)
+app.run()
